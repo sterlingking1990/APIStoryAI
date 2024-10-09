@@ -4,7 +4,7 @@ import json
 from openai import OpenAI
 from api_parser import parse_api_collection
 
-api_key = "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"
+api_key = ""
 app = FastAPI()
 
 # Endpoint to upload API Collection (JSON File)
