@@ -4,6 +4,7 @@ import json
 from openai import OpenAI
 from api_parser import parse_api_collection
 import os
+from dotenv import load_dotenv
 
 load_dotenv()
 
