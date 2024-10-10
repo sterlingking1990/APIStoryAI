@@ -3,8 +3,10 @@ from fastapi.responses import JSONResponse
 import json
 from openai import OpenAI
 from api_parser import parse_api_collection
+import os
 
-api_key = "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"
+load_dotenv()
+api_key = os.getenv(OPENAI_API_KEY)
 app = FastAPI()
 
 # Endpoint to upload API Collection (JSON File)
