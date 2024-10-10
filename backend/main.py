@@ -6,7 +6,8 @@ from api_parser import parse_api_collection
 import os
 
 load_dotenv()
-api_key = os.getenv(OPENAI_API_KEY)
+
+api_key = os.getenv('OPENAI_API_KEY')
 app = FastAPI()
 
 # Endpoint to upload API Collection (JSON File)
