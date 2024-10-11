@@ -5,8 +5,9 @@
         "method": "GET",
         "description": "Retrieve a list of users",
         "schema": {
+          "name":"users",
           "columns": [
-            { "name": "fullname", "type": "string" },
+            { "name": "name", "type": "string" },
             { "name": "email", "type": "string" },
             { "name": "msisdn", "type": "string" }
           ],
@@ -21,15 +22,15 @@
           { "name": "user_id", "in": "path", "type": "integer", "required": true }
         ],
         "schema": {
+          "name":"subscriptions",
           "columns": [
             { "name": "id", "type": "integer" },
             { "name": "service", "type": "string" },
-            { "name": "plan", "type": "string" },
-            { "name": "date_of_subscription", "type": "date" },
+            { "name": "service_duration", "type": "string" },
+            { "name": "date_subscribed", "type": "date" },
             { "name": "description", "type": "string" },
             { "name": "user_id", "type": "integer" },
-            { "name": "type_of_subscription", "type": "string" },
-            { "name": "end_date_of_subscription", "type": "date" }
+            { "name": "end_date", "type": "date" }
           ],
           "description": "Schema capturing user-specific subscriptions."
         }
