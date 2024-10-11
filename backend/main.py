@@ -65,14 +65,19 @@ def map_query_result_dynamically(result: Result) -> List[dict]:
 def get_questions_from_ai(api_collection: dict) -> str:
     # Create the message content dynamically
     prompt_content = f"""
-    Given the following API collection: {api_collection}, generate at least 5 business-related questions and for each question, inspect the schema, figure out which combinations are possible, and then generate appropriate sql query logic. The schema name is the table. For queries that requires WHERE clause, use a question mark placeholder. 
-    Your output should be organized and follow an appropriate JSON format with the following structure: 
-    
+     Given the following API collection: {api_collection}, generate at least 5 business-related questions. For each question, inspect the schema, figure out which combinations are possible, and then generate valid SQL query logic. The schema name is the table. For queries that require a WHERE clause, use a question mark placeholder. Additionally, suggest an appropriate type of visualization based on the nature of the query result.
+
+    Your output should be organized and follow this JSON structure:
+
             "business_questions": [
                 {{
                     "question": "<the business-related question>",
                     "sql_query": "<the corresponding SQL query>",
-                    "query_parameter":"<the corresponding query parameter(s) seperated by comma required if any>"
+                    "query_parameter": ["<the corresponding query parameter>",...],
+                    "visualization_suggestion": [
+                        "<the type of visualization suggested for the result (e.g., bar chart, table, line chart, heatmap, etc.)>",
+                        ...
+                        ]
                 }},
                 ...
             ]
@@ -86,7 +91,7 @@ def get_questions_from_ai(api_collection: dict) -> str:
         messages=[
              {
                 "role": "system",
-                "content": "You are a professional Data analyst helping business owners understand Insights from API collections and its schemas by generating all possible relevant questions and for each question appropriate sql query logic after having inspected the schema and figured out which combinations are possible. For queries that requires WHERE clause, use a question mark placeholder. Your output should be organized and follow an appropriate json format"
+                "content": "You are a professional Data analyst helping business owners understand insights from API collections and their schemas by generating all possible relevant questions, the corresponding SQL query logic, and appropriate visualization suggestions. After inspecting the schema and determining possible combinations, for queries that require a WHERE clause, use a question mark placeholder. Your output should be organized and follow a structured JSON format with business-related questions, SQL queries, query parameters, and visualization suggestions."
             },
             {
                 "role": "user",
