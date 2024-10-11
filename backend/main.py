@@ -65,21 +65,22 @@ def map_query_result_dynamically(result: Result) -> List[dict]:
 def get_questions_from_ai(api_collection: dict) -> str:
     # Create the message content dynamically
     prompt_content = f"""
-     Given the following API collection: {api_collection}, generate at least 5 business-related questions. For each question, inspect the schema, figure out which combinations are possible, and then generate valid SQL query logic. The schema name is the table. For queries that require a WHERE clause, use a question mark placeholder. Additionally, suggest an appropriate type of visualization based on the nature of the query result.
-
+    Given the following API collection: {api_collection}, generate at least 5 business-related questions. For each question:
+    1. Inspect the schema for each endpoint to determine which combinations of tables and fields can be used.
+    2. Generate a valid SQL query that corresponds to the question. Ensure that:
+    - The schema name corresponds to the table name.
+    - If a WHERE clause is needed, use a question mark (?) as a placeholder for any required parameters.
+    - The SQL query should be executable in a PostgreSQL environment.
+    3. Suggest an appropriate type of visualization based on the nature of the query result (e.g., bar chart, table, line chart, heatmap, etc.).
     Your output should be organized and follow this JSON structure:
-
-            "business_questions": [
-                {{
-                    "question": "<the business-related question>",
-                    "sql_query": "<the corresponding SQL query>",
-                    "query_parameter": ["<the corresponding query parameter>",...],
-                    "visualization_suggestion": [
-                        "<the type of visualization suggested for the result (e.g., bar chart, table, line chart, heatmap, etc.)>",
-                        ...
-                        ]
-                }},
-                ...
+        "business_questions": [
+            {{
+                "question": "<the business-related question>",
+                "sql_query": "<the corresponding SQL query>",
+                "query_parameter": ["<the corresponding query parameter>",...],
+                "visualization_suggestion": ["<the type of visualization suggested for the result>",...]
+            }},
+            ...
             ]
     """
     
@@ -91,7 +92,14 @@ def get_questions_from_ai(api_collection: dict) -> str:
         messages=[
              {
                 "role": "system",
-                "content": "You are a professional Data analyst helping business owners understand insights from API collections and their schemas by generating all possible relevant questions, the corresponding SQL query logic, and appropriate visualization suggestions. After inspecting the schema and determining possible combinations, for queries that require a WHERE clause, use a question mark placeholder. Your output should be organized and follow a structured JSON format with business-related questions, SQL queries, query parameters, and visualization suggestions."
+                "content": (
+                "You are a professional data analyst assisting business owners in extracting insights "
+                "from API collections and their schemas. Your task is to generate relevant business-related "
+                "questions, the corresponding SQL query logic, and appropriate visualization suggestions. "
+                "After inspecting the schema and determining possible combinations, if a query requires a "
+                "WHERE clause, use a question mark placeholder. Ensure your output follows a structured JSON "
+                "format that includes business-related questions, SQL queries, query parameters, and "
+                "visualization suggestions.")
             },
             {
                 "role": "user",
@@ -139,12 +147,19 @@ async def upload_api_collection(file: UploadFile = File(...)):
 @app.post("/execute-query/")
 async def execute_query(payload: dict, db: Session = Depends(get_db)):
     query = payload["query"]
-    user_input = payload["userInput"]  # Optional user input, default is None
-    
-    if "?" in query:
-        query = query.replace("?", f"'{user_input}'" if user_input else "NULL")
+    user_inputs = payload.get("userInputs", {})  # Get all user inputs as a dictionary
 
     try:
+        # Replace all placeholders (?) with the corresponding user input
+        for idx, (param, user_input) in enumerate(user_inputs.items()):
+            placeholder = f"?"
+            # Replace the placeholder with the appropriate user input
+            if user_input is not None:
+                # Safely format the input for SQL
+                query = query.replace(placeholder, f"'{user_input}'", 1)  # Replace only the first occurrence
+            else:
+                query = query.replace(placeholder, "NULL", 1)  # Replace with NULL if no input
+
         # Execute the SQL query dynamically
         result = db.execute(text(query))
 

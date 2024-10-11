@@ -28,26 +28,35 @@ Chart.register(
 
 function QuestionsList({ questions }) {
   const [selectedQuestion, setSelectedQuestion] = useState(null);
-  const [userInput, setUserInput] = useState("");
+  const [userInputs, setUserInputs] = useState({});
   const [queryResult, setQueryResult] = useState(null);
   const [showGraph, setShowGraph] = useState(false);
 
   const handleQuestionClick = (question) => {
     setSelectedQuestion(question);
-    setUserInput(""); // Reset input field
+    setUserInputs({}); // Reset input field
     setQueryResult(null); // Reset query result
     setShowGraph(false);
   };
 
-  const handleInputChange = (event) => {
-    setUserInput(event.target.value);
+  const handleInputChange = (event, param) => {
+    setUserInputs({
+      ...userInputs,
+      [param]: event.target.value,
+    });
+  };
+
+  const includesIgnoreCase = (arr, search) => {
+    return arr.some((item) =>
+      item.toLowerCase().includes(search.toLowerCase())
+    );
   };
 
   const executeQuery = async (event) => {
     event.preventDefault();
     const payload = {
       query: selectedQuestion.sql_query,
-      userInput: userInput || "",
+      userInputs: userInputs,
     };
 
     try {
@@ -78,9 +87,18 @@ function QuestionsList({ questions }) {
   useEffect(() => {
     if (showGraph && selectedQuestion) {
       if (
-        selectedQuestion.visualization_suggestion.includes("bar chart") ||
-        selectedQuestion.visualization_suggestion.includes("line chart") ||
-        selectedQuestion.visualization_suggestion.includes("timeline")
+        includesIgnoreCase(
+          selectedQuestion.visualization_suggestion,
+          "bar chart"
+        ) ||
+        includesIgnoreCase(
+          selectedQuestion.visualization_suggestion,
+          "line chart"
+        ) ||
+        includesIgnoreCase(
+          selectedQuestion.visualization_suggestion,
+          "timeline"
+        )
       ) {
         const ctx = document.getElementById("myChart").getContext("2d");
         generateDynamicGraph(ctx);
@@ -98,17 +116,30 @@ function QuestionsList({ questions }) {
       //Determine the type of chart e.g bar for numeric, pie for categories
 
       let chartType = "bar"; // Default chart type
-      if (selectedQuestion.visualization_suggestion.includes("line chart")) {
+      if (
+        includesIgnoreCase(
+          selectedQuestion.visualization_suggestion,
+          "line chart"
+        )
+      ) {
         chartType = "line";
       } else if (
-        selectedQuestion.visualization_suggestion.includes("timeline")
+        includesIgnoreCase(
+          selectedQuestion.visualization_suggestion,
+          "timeline"
+        )
       ) {
         chartType = "line"; // Timeline is often implemented as a line chart with dates on the x-axis
       } else if (
-        selectedQuestion.visualization_suggestion.includes("bar chart")
+        includesIgnoreCase(
+          selectedQuestion.visualization_suggestion,
+          "bar chart"
+        )
       ) {
         chartType = "bar";
-      } else if (selectedQuestion.visualization_suggestion.includes("pie")) {
+      } else if (
+        includesIgnoreCase(selectedQuestion.visualization_suggestion, "pie")
+      ) {
         chartType = "pie";
       }
 
@@ -143,6 +174,7 @@ function QuestionsList({ questions }) {
 
   return (
     <div>
+      <h3>{questions.length} Questions we think you could ask</h3>
       <ul>
         {questions.map((q, index) => (
           <li key={index} onClick={() => handleQuestionClick(q)}>
@@ -154,16 +186,30 @@ function QuestionsList({ questions }) {
       {selectedQuestion && (
         <div>
           <h3>Selected Question: {selectedQuestion.question}</h3>
-          {selectedQuestion.sql_query.includes("?") && (
-            <div>
-              <label>Enter {selectedQuestion.query_parameter}:</label>
-              <input
-                type="text"
-                value={userInput}
-                onChange={handleInputChange}
-              />
-            </div>
-          )}
+          {Array.isArray(selectedQuestion.query_parameter) &&
+          selectedQuestion.query_parameter.length > 0
+            ? selectedQuestion.query_parameter.map((param, idx) => (
+                <div key={idx}>
+                  <label>Enter {param}:</label>
+                  <input
+                    type="text"
+                    value={userInputs[param] || ""}
+                    onChange={(event) => handleInputChange(event, param)}
+                  />
+                </div>
+              ))
+            : selectedQuestion.sql_query.includes("?") && (
+                <div>
+                  <label>Enter {selectedQuestion.query_parameter}:</label>
+                  <input
+                    type="text"
+                    value={userInputs[selectedQuestion.query_parameter] || ""}
+                    onChange={(event) =>
+                      handleInputChange(event, selectedQuestion.query_parameter)
+                    }
+                  />
+                </div>
+              )}
           <button onClick={executeQuery}>Execute Query</button>
         </div>
       )}
@@ -183,33 +229,62 @@ function QuestionsList({ questions }) {
             <tbody>{tableData}</tbody>
           </table>
 
-          {selectedQuestion.visualization_suggestion.includes("bar chart") ||
-          selectedQuestion.visualization_suggestion.includes("line chart") ||
-          selectedQuestion.visualization_suggestion.includes("timeline") ||
-          selectedQuestion.visualization_suggestion.includes("heatmap") ||
-          selectedQuestion.visualization_suggestion.includes(
+          {includesIgnoreCase(
+            selectedQuestion.visualization_suggestion,
+            "bar chart"
+          ) ||
+          includesIgnoreCase(
+            selectedQuestion.visualization_suggestion,
+            "line chart"
+          ) ||
+          includesIgnoreCase(
+            selectedQuestion.visualization_suggestion,
+            "timeline"
+          ) ||
+          includesIgnoreCase(
+            selectedQuestion.visualization_suggestion,
+            "heatmap"
+          ) ||
+          includesIgnoreCase(
+            selectedQuestion.visualization_suggestion,
             "number indicator"
           ) ||
-          selectedQuestion.visualization_suggestion.includes("number card") ? (
+          includesIgnoreCase(
+            selectedQuestion.visualization_suggestion,
+            "number card"
+          ) ||
+          includesIgnoreCase(
+            selectedQuestion.visualization_suggestion,
+            "number"
+          ) ? (
             <>
               <button onClick={() => setShowGraph(true)}>
                 View Visualization
               </button>
               {showGraph && (
                 <div>
-                  {selectedQuestion.visualization_suggestion.includes(
+                  {includesIgnoreCase(
+                    selectedQuestion.visualization_suggestion,
                     "number indicator"
                   ) ||
-                    (selectedQuestion.visualization_suggestion.includes(
+                    includesIgnoreCase(
+                      selectedQuestion.visualization_suggestion,
                       "number card"
+                    ) ||
+                    (includesIgnoreCase(
+                      selectedQuestion.visualization_suggestion,
+                      "number"
                     ) && <NumberIndicator result={queryResult} />)}
-                  {selectedQuestion.visualization_suggestion.includes(
+                  {includesIgnoreCase(
+                    selectedQuestion.visualization_suggestion,
                     "bar chart"
                   ) ||
-                  selectedQuestion.visualization_suggestion.includes(
+                  includesIgnoreCase(
+                    selectedQuestion.visualization_suggestion,
                     "line chart"
                   ) ||
-                  selectedQuestion.visualization_suggestion.includes(
+                  includesIgnoreCase(
+                    selectedQuestion.visualization_suggestion,
                     "timeline"
                   ) ? (
                     <div>
