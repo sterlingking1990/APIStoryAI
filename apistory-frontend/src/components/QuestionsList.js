@@ -26,7 +26,7 @@ Chart.register(
   PointElement
 );
 
-function QuestionsList({ questions }) {
+function QuestionsList({ questions, connString }) {
   const [selectedQuestion, setSelectedQuestion] = useState(null);
   const [userInputs, setUserInputs] = useState({});
   const [queryResult, setQueryResult] = useState(null);
@@ -57,6 +57,7 @@ function QuestionsList({ questions }) {
     const payload = {
       query: selectedQuestion.sql_query,
       userInputs: userInputs,
+      connString: connString,
     };
 
     try {

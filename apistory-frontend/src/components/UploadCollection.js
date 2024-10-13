@@ -3,9 +3,16 @@ import axios from "axios";
 
 const UploadCollection = ({ onUpload, questionsLoaded }) => {
   const [selectedFile, setSelectedFile] = useState(null);
+  const [formVisible, setFormVisible] = useState(false);
+  const [formFilled, setFormFilled] = useState(false);
+  const [formData, setFormData] = useState({
+    openAiApiKey: "",
+    dbConnectionString: "",
+  });
 
   const handleFileChange = (event) => {
     setSelectedFile(event.target.files[0]);
+    setFormVisible(true);
   };
 
   const handleUpload = async (event) => {
@@ -17,33 +24,84 @@ const UploadCollection = ({ onUpload, questionsLoaded }) => {
       return; // Prevent execution if no file is selected
     }
 
-    const formData = new FormData();
-    formData.append("file", selectedFile);
-    console.log(selectedFile);
+    var connEnv = "";
+    if (formData["dbConnectionString"].startsWith("postgresql")) {
+      connEnv = "sql";
+    } else {
+      connEnv = "mongodb";
+    }
+    const newFormData = new FormData();
+    newFormData.append("file", selectedFile);
+    // Append the OpenAI API key and connection environment string
+    newFormData.append("openAiApiKey", formData["openAiApiKey"]);
+    newFormData.append("connEnv", connEnv); // Replace connEnv with the actual value if needed
 
+    console.log(selectedFile);
+    console.log(formData["openAiApiKey"]);
     try {
       const response = await axios.post(
         "http://127.0.0.1:8000/upload-api-collection/",
-        formData
+        newFormData
       );
       console.log(response.data);
-      onUpload(response.data);
+      onUpload(response.data, formData[1]);
     } catch (error) {
       console.error("Error uploading the file", error);
     }
   };
 
-  // Call handleUpload again to refresh questions
-  const handleRefreshQuestions = async () => {
-    await handleUpload(); // call handle upload without an eent
+  const handleFormChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
+    });
+  };
+
+  const handleFormSubmit = (e) => {
+    e.preventDefault();
+    if (formData.openAiApiKey && formData.dbConnectionString) {
+      setFormFilled(true); // Enable the button when the form is filled
+    } else {
+      console.error("Please fill all form fields");
+    }
   };
 
   return (
     <div>
       <input type="file" onChange={handleFileChange} />
-      <button onClick={questionsLoaded ? handleRefreshQuestions : handleUpload}>
-        {questionsLoaded ? "Refresh Questions" : "Get Questions"}
-      </button>
+      {/* Form Visible After File Upload */}
+      {formVisible && (
+        <form onSubmit={handleFormSubmit}>
+          <div>
+            <label>OpenAI API Key:</label>
+            <input
+              type="text"
+              name="openAiApiKey"
+              value={formData.openAiApiKey}
+              onChange={handleFormChange}
+              required
+            />
+          </div>
+          <div>
+            <label>Database Connection String:</label>
+            <input
+              type="text"
+              name="dbConnectionString"
+              value={formData.dbConnectionString}
+              onChange={handleFormChange}
+              required
+            />
+          </div>
+          {/* Add more fields if needed */}
+          <button type="submit">Submit Form</button>
+        </form>
+      )}
+      {/* Button Visible After Form Submission */}
+      {formFilled && (
+        <button onClick={questionsLoaded ? handleUpload : handleUpload}>
+          {questionsLoaded ? "Refresh Questions" : "Get Questions"}
+        </button>
+      )}
     </div>
   );
 };

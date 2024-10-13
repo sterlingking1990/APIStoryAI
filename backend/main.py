@@ -1,4 +1,4 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException, Depends
+from fastapi import FastAPI, File, Form, UploadFile, HTTPException, Depends
 from fastapi.responses import JSONResponse
 import json
 from openai import OpenAI
@@ -11,8 +11,8 @@ from client.model.user import UserBase
 from client.model.subscription import SubscriptionBase
 from database import schema
 from database.conn import engine, SessionLocal
-from sqlalchemy.orm import Session,joinedload
-from sqlalchemy import text
+from sqlalchemy.orm import Session,joinedload, sessionmaker
+from sqlalchemy import text, create_engine
 from sqlalchemy.engine import Result
 import traceback
 from pydantic import BaseModel
@@ -62,35 +62,35 @@ def map_query_result_dynamically(result: Result) -> List[dict]:
     return mapped_result
 
 # AI function to generate questions
-def get_questions_from_ai(api_collection: dict) -> str:
+def get_questions_from_ai(api_collection: dict,apiKey:str,connEnv:str) -> str:
     # Create the message content dynamically
-    prompt_content = f"""
-    Given the following API collection: {api_collection}, generate at least 5 business-related questions. For each question:
-    1. Inspect the schema for each endpoint to determine which combinations of tables and fields can be used.
-    2. Generate a valid SQL query that corresponds to the question. Ensure that:
-    - The schema name corresponds to the table name.
-    - If a WHERE clause is needed, use a question mark (?) as a placeholder for any required parameters.
-    - The SQL query should be executable in a PostgreSQL environment.
-    3. Suggest an appropriate type of visualization based on the nature of the query result (e.g., bar chart, table, line chart, heatmap, etc.).
-    Your output should be organized and follow this JSON structure:
-        "business_questions": [
-            {{
-                "question": "<the business-related question>",
-                "sql_query": "<the corresponding SQL query>",
-                "query_parameter": ["<the corresponding query parameter>",...],
-                "visualization_suggestion": ["<the type of visualization suggested for the result>",...]
-            }},
-            ...
-            ]
-    """
-    
-    # Call the OpenAI API
-    print(api_key)
-    client = OpenAI(api_key=api_key)
+    if connEnv == "mongo":
+        
+        prompt_content = f"""
+Given the following API collection: {api_collection}, generate at least 5 business-related questions. For each question:
+1. Inspect the schema for each endpoint to determine which combinations of collections and fields can be used.
+2. Generate a valid MongoDB query that corresponds to the question. Ensure that:
+- The schema name corresponds to the collection name.
+- If a filter condition is needed, use a question mark (?) as a placeholder for any required parameters.
+- The query should be executable in a MongoDB environment using `find()` or aggregation pipelines where necessary.
+3. Suggest an appropriate type of visualization based on the nature of the query result (e.g., bar chart, table, line chart, heatmap, etc.).
+Your output should be organized and follow this JSON structure:
+    "business_questions": [
+        {{
+            "question": "<the business-related question>",
+            "query": "<the corresponding MongoDB query>",
+            "query_parameter": ["<the corresponding query parameter>",...],
+            "visualization_suggestion": ["<the type of visualization suggested for the result>",...]
+        }},
+        ...
+        ]
+"""
+        print(apiKey)
+        client = OpenAI(api_key=apiKey)
 
-    response = client.chat.completions.create(
-        messages=[
-             {
+        response = client.chat.completions.create(
+            messages=[
+            {
                 "role": "system",
                 "content": (
                 "You are a professional data analyst assisting business owners in extracting insights "
@@ -112,10 +112,61 @@ def get_questions_from_ai(api_collection: dict) -> str:
     
     # Extract the generated questions from the response
 
-    return response
+        return response
+    else:
+        prompt_content = f"""
+    Given the following API collection: {api_collection}, generate at least 5 business-related questions. For each question:
+    1. Inspect the schema for each endpoint to determine which combinations of tables and fields can be used.
+    2. Generate a valid SQL query that corresponds to the question. Ensure that:
+    - The schema name corresponds to the table name.
+    - If a WHERE clause is needed, use a question mark (?) as a placeholder for any required parameters.
+    - The SQL query should be executable in a PostgreSQL environment.
+    3. Suggest an appropriate type of visualization based on the nature of the query result (e.g., bar chart, table, line chart, heatmap, etc.).
+    Your output should be organized and follow this JSON structure:
+        "business_questions": [
+            {{
+                "question": "<the business-related question>",
+                "query": "<the corresponding SQL query>",
+                "query_parameter": ["<the corresponding query parameter>",...],
+                "visualization_suggestion": ["<the type of visualization suggested for the result>",...]
+            }},
+            ...
+            ]
+    """
+        print(apiKey)
+        client = OpenAI(api_key=apiKey)
+
+        response = client.chat.completions.create(
+            messages=[
+            {
+                "role": "system",
+                "content": (
+                "You are a professional data analyst assisting business owners in extracting insights "
+                "from API collections and their schemas. Your task is to generate relevant business-related "
+                "questions, the corresponding SQL query logic, and appropriate visualization suggestions. "
+                "After inspecting the schema and determining possible combinations, if a query requires a "
+                "WHERE clause, use a question mark placeholder. Ensure your output follows a structured JSON "
+                "format that includes business-related questions, SQL queries, query parameters, and "
+                "visualization suggestions.")
+            },
+            {
+                "role": "user",
+                "content": prompt_content
+            }
+        ],
+        model="gpt-4",
+        temperature = 0.3
+    )
+    
+    # Extract the generated questions from the response
+
+        return response
+
+
 
 @app.post("/upload-api-collection/")
-async def upload_api_collection(file: UploadFile = File(...)):
+async def upload_api_collection(file: UploadFile = File(...),openAiApiKey: str =Form(...),
+    connEnv: str = Form(...)):
     try:
         # Read the contents of the uploaded file
         contents = await file.read()
@@ -127,7 +178,7 @@ async def upload_api_collection(file: UploadFile = File(...)):
             raise HTTPException(status_code=400, detail="Invalid JSON format in file.")
 
         # Get business-related questions from the AI
-        all_response = get_questions_from_ai(api_data)  # Ensure this function works as expected
+        all_response = get_questions_from_ai(api_data,openAiApiKey,connEnv)  # Ensure this function works as expected
         print(all_response)
         all_questions = json.loads(all_response.choices[0].message.content.strip())
 

@@ -6,12 +6,14 @@ import QuestionsList from "./components/QuestionsList";
 
 function App() {
   const [questions, setQuestions] = useState([]);
+  const [connString, setConnString] = useState();
 
   // Determine if questions are loaded
   const questionsLoaded = questions.length > 0;
 
-  const handleUpload = (data) => {
+  const handleUpload = (data, connString) => {
     setQuestions(data.questions.business_questions);
+    setConnString(connString);
   };
 
   return (
@@ -21,7 +23,9 @@ function App() {
         onUpload={handleUpload}
         questionsLoaded={questionsLoaded}
       />
-      {questions.length > 0 && <QuestionsList questions={questions} />}
+      {questions.length > 0 && (
+        <QuestionsList questions={questions} connString={connString} />
+      )}
     </div>
   );
 }
