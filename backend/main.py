@@ -16,6 +16,7 @@ from sqlalchemy import text, create_engine
 from sqlalchemy.engine import Result
 import traceback
 from pydantic import BaseModel
+from database.helpers.dbhelper import detect_db_type,get_mongo_db,get_sql_db,execute_mongo_query, execute_sql_query
 
 app = FastAPI()
 origins = ['http://localhost:3000', 'https://localhost:3000', 'http://127.0.0.1:3000', 'https://127.0.0.1:3000', 'http://localhost:1','localhost:1']
@@ -50,15 +51,14 @@ class DynamicQueryResult(BaseModel):
 
 
 # Function to map SQL query result dynamically to a dictionary or model
-def map_query_result_dynamically(result: Result) -> List[dict]:
+def map_query_result_dynamically(rows, column_names):
     """
     Dynamically map the result to a list of dictionaries where column names are keys.
-    :param result: SQLAlchemy Result object
+    :param rows: List of row tuples
+    :param column_names: List of column names
     :return: List of dictionaries
     """
-    keys = result.keys()  # Get the column names
-    mapped_result = [dict(zip(keys, row)) for row in result.fetchall()]  # Convert each row to dict
-    
+    mapped_result = [dict(zip(column_names, row)) for row in rows]  # Convert each row to dict
     return mapped_result
 
 # AI function to generate questions
@@ -180,7 +180,17 @@ async def upload_api_collection(file: UploadFile = File(...),openAiApiKey: str =
         # Get business-related questions from the AI
         all_response = get_questions_from_ai(api_data,openAiApiKey,connEnv)  # Ensure this function works as expected
         print(all_response)
-        all_questions = json.loads(all_response.choices[0].message.content.strip())
+        # Extract the actual JSON content (remove the ` ```json ` block)
+        raw_content = all_response.choices[0].message.content.strip()
+
+        # Remove the leading and trailing code block markers if present
+        if raw_content.startswith("```json"):
+            raw_content = raw_content[7:]  # Removes "```json"
+        if raw_content.endswith("```"):
+            raw_content = raw_content[:-3]  # Removes trailing "```"
+
+        # Now load the actual JSON content
+        all_questions = json.loads(raw_content)
 
         return {
             "summary": "API Collection processed successfully.",
@@ -199,29 +209,43 @@ async def upload_api_collection(file: UploadFile = File(...),openAiApiKey: str =
 async def execute_query(payload: dict, db: Session = Depends(get_db)):
     query = payload["query"]
     user_inputs = payload.get("userInputs", {})  # Get all user inputs as a dictionary
+    connection_string = payload.get("connString")
+    
 
     try:
-        # Replace all placeholders (?) with the corresponding user input
-        for idx, (param, user_input) in enumerate(user_inputs.items()):
-            placeholder = f"?"
-            # Replace the placeholder with the appropriate user input
-            if user_input is not None:
-                # Safely format the input for SQL
-                query = query.replace(placeholder, f"'{user_input}'", 1)  # Replace only the first occurrence
-            else:
-                query = query.replace(placeholder, "NULL", 1)  # Replace with NULL if no input
+        # Detect the type of database
+        db_type = detect_db_type(connection_string)
 
-        # Execute the SQL query dynamically
-        result = db.execute(text(query))
-
-        # Map the result dynamically to a dictionary
-        mapped_result = map_query_result_dynamically(result)
-
-        return {"result": mapped_result}
+        if db_type == "mongodb":
+            # MongoDB logic
+            mongo_db = get_mongo_db(connection_string)
+            # Modify MongoDB query based on user inputs
+            for key, value in user_inputs.items():
+                query[key] = value  # Modify query based on user inputs
+            result = execute_mongo_query(mongo_db, query)
+            return {"result": result}
+        
+        elif db_type == "postgresql":
+            # PostgreSQL or SQL logic
+            sql_db = get_sql_db(connection_string)
+    
+            # Execute the SQL query and get both rows and column names
+            rows, column_names = execute_sql_query(sql_db, query, user_inputs)
+    
+            # If it's a single scalar result like COUNT or SUM
+            if len(rows) == 1 and len(rows[0]) == 1:
+                return {"result": [{"value": rows[0][0]}]}  # Return the scalar value directly
+    
+            # Otherwise, map the result dynamically using column names
+            mapped_result = map_query_result_dynamically(rows, column_names)
+    
+            print(mapped_result)
+            return {"result": mapped_result}
 
     except Exception as e:
         print(traceback.format_exc())
         raise HTTPException(status_code=400, detail=f"Error executing query: {str(e)}")
+
 
 @app.post("/callback/")
 async def subscribe_user(user: UserBase, db: db_dependency):

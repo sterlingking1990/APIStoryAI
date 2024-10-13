@@ -13,7 +13,7 @@ import {
   PointElement,
 } from "chart.js";
 import NumberIndicator from "./viz/NumberIndicator";
-// Register the chart types
+
 Chart.register(
   BarController,
   BarElement,
@@ -34,8 +34,8 @@ function QuestionsList({ questions, connString }) {
 
   const handleQuestionClick = (question) => {
     setSelectedQuestion(question);
-    setUserInputs({}); // Reset input field
-    setQueryResult(null); // Reset query result
+    setUserInputs({});
+    setQueryResult(null);
     setShowGraph(false);
   };
 
@@ -55,7 +55,7 @@ function QuestionsList({ questions, connString }) {
   const executeQuery = async (event) => {
     event.preventDefault();
     const payload = {
-      query: selectedQuestion.sql_query,
+      query: selectedQuestion.query,
       userInputs: userInputs,
       connString: connString,
     };
@@ -65,22 +65,26 @@ function QuestionsList({ questions, connString }) {
         "http://127.0.0.1:8000/execute-query",
         payload
       );
-      console.log(response.data.result);
-      setQueryResult(response.data.result); // Display the result
+      console.log(response.data);
+      setQueryResult(response.data.result);
     } catch (error) {
       console.error("Error executing the query", error);
     }
   };
 
-  // Prepare data for the table
   const tableHeaders =
     queryResult && queryResult.length > 0 ? Object.keys(queryResult[0]) : [];
   const tableData =
     queryResult &&
     queryResult.map((row, index) => (
-      <tr key={index}>
+      <tr key={index} className={index % 2 === 0 ? "bg-gray-50" : "bg-white"}>
         {tableHeaders.map((header) => (
-          <td key={header}>{row[header]}</td>
+          <td
+            key={header}
+            className="px-6 py-4 whitespace-nowrap text-sm text-gray-500"
+          >
+            {row[header]}
+          </td>
         ))}
       </tr>
     ));
@@ -108,15 +112,12 @@ function QuestionsList({ questions, connString }) {
   }, [showGraph, selectedQuestion]);
 
   const generateDynamicGraph = (ctx) => {
-    //Dynamically extract labels and data from the query result
     if (queryResult && queryResult.length > 0) {
       const keys = Object.keys(queryResult[0]);
       const labels = queryResult.map((row) => row[keys[0]]);
       const values = queryResult.map((row) => parseInt(row[keys[1]], 10) || 1);
 
-      //Determine the type of chart e.g bar for numeric, pie for categories
-
-      let chartType = "bar"; // Default chart type
+      let chartType = "bar";
       if (
         includesIgnoreCase(
           selectedQuestion.visualization_suggestion,
@@ -130,7 +131,7 @@ function QuestionsList({ questions, connString }) {
           "timeline"
         )
       ) {
-        chartType = "line"; // Timeline is often implemented as a line chart with dates on the x-axis
+        chartType = "line";
       } else if (
         includesIgnoreCase(
           selectedQuestion.visualization_suggestion,
@@ -143,8 +144,6 @@ function QuestionsList({ questions, connString }) {
       ) {
         chartType = "pie";
       }
-
-      //create the chart with dynamic labels and data
 
       new Chart(ctx, {
         type: chartType,
@@ -174,61 +173,96 @@ function QuestionsList({ questions, connString }) {
   };
 
   return (
-    <div>
-      <h3>{questions.length} Questions we think you could ask</h3>
-      <ul>
+    <div className="mt-8">
+      <h3 className="text-2xl font-semibold text-gray-800 mb-4">
+        {questions.length} Questions we think you could ask
+      </h3>
+      <ul className="space-y-2">
         {questions.map((q, index) => (
-          <li key={index} onClick={() => handleQuestionClick(q)}>
+          <li
+            key={index}
+            onClick={() => handleQuestionClick(q)}
+            className="cursor-pointer p-2 hover:bg-gray-100 rounded transition duration-150 ease-in-out"
+          >
             {q.question}
           </li>
         ))}
       </ul>
 
       {selectedQuestion && (
-        <div>
-          <h3>Selected Question: {selectedQuestion.question}</h3>
-          {Array.isArray(selectedQuestion.query_parameter) &&
-          selectedQuestion.query_parameter.length > 0
-            ? selectedQuestion.query_parameter.map((param, idx) => (
-                <div key={idx}>
-                  <label>Enter {param}:</label>
-                  <input
-                    type="text"
-                    value={userInputs[param] || ""}
-                    onChange={(event) => handleInputChange(event, param)}
-                  />
-                </div>
-              ))
-            : selectedQuestion.sql_query.includes("?") && (
-                <div>
-                  <label>Enter {selectedQuestion.query_parameter}:</label>
-                  <input
-                    type="text"
-                    value={userInputs[selectedQuestion.query_parameter] || ""}
-                    onChange={(event) =>
-                      handleInputChange(event, selectedQuestion.query_parameter)
-                    }
-                  />
-                </div>
-              )}
-          <button onClick={executeQuery}>Execute Query</button>
+        <div className="mt-6 p-4 bg-white rounded-lg shadow">
+          <h3 className="text-xl font-semibold text-gray-800 mb-4">
+            Selected Question: {selectedQuestion.question}
+          </h3>
+          <form onSubmit={executeQuery} className="space-y-4">
+            {Array.isArray(selectedQuestion.query_parameter) &&
+            selectedQuestion.query_parameter.length > 0
+              ? selectedQuestion.query_parameter.map((param, idx) => (
+                  <div key={idx} className="flex flex-col">
+                    <label className="mb-1 font-medium text-gray-700">
+                      Enter {param}:
+                    </label>
+                    <input
+                      type="text"
+                      value={userInputs[param] || ""}
+                      onChange={(event) => handleInputChange(event, param)}
+                      className="p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                ))
+              : selectedQuestion.query.includes("?") && (
+                  <div className="flex flex-col">
+                    <label className="mb-1 font-medium text-gray-700">
+                      Enter {selectedQuestion.query_parameter}:
+                    </label>
+                    <input
+                      type="text"
+                      value={userInputs[selectedQuestion.query_parameter] || ""}
+                      onChange={(event) =>
+                        handleInputChange(
+                          event,
+                          selectedQuestion.query_parameter
+                        )
+                      }
+                      className="p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                )}
+            <button
+              type="submit"
+              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
+            >
+              Execute Query
+            </button>
+          </form>
         </div>
       )}
 
       {queryResult && (
-        <div>
-          <h4>Query Result:</h4>
+        <div className="mt-8">
+          <h4 className="text-xl font-semibold text-gray-800 mb-4">
+            Query Result:
+          </h4>
 
-          <table border="1">
-            <thead>
-              <tr>
-                {tableHeaders.map((header) => (
-                  <th key={header}>{header}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>{tableData}</tbody>
-          </table>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  {tableHeaders.map((header) => (
+                    <th
+                      key={header}
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      {header}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {tableData}
+              </tbody>
+            </table>
+          </div>
 
           {includesIgnoreCase(
             selectedQuestion.visualization_suggestion,
@@ -258,12 +292,15 @@ function QuestionsList({ questions, connString }) {
             selectedQuestion.visualization_suggestion,
             "number"
           ) ? (
-            <>
-              <button onClick={() => setShowGraph(true)}>
+            <div className="mt-6">
+              <button
+                onClick={() => setShowGraph(true)}
+                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50"
+              >
                 View Visualization
               </button>
               {showGraph && (
-                <div>
+                <div className="mt-4">
                   {includesIgnoreCase(
                     selectedQuestion.visualization_suggestion,
                     "number indicator"
@@ -288,13 +325,13 @@ function QuestionsList({ questions, connString }) {
                     selectedQuestion.visualization_suggestion,
                     "timeline"
                   ) ? (
-                    <div>
+                    <div className="mt-4">
                       <canvas id="myChart"></canvas>
                     </div>
                   ) : null}
                 </div>
               )}
-            </>
+            </div>
           ) : null}
         </div>
       )}

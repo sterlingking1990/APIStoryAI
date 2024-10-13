@@ -17,7 +17,7 @@ class Subscription(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     service = Column(String, index = True)
-    service_duration = Column(String, index = True)
+    service_duration = Column(Integer, index = True)
     date_subscribed = Column(Date, index = True)
     description = Column(String, index = True)
     end_date = Column(Date, index = True)
