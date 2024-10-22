@@ -36,3 +36,26 @@
     transform: rotate(360deg);
   }
 }
+
+.text-logo {
+  font-size: 3rem; /* Adjust the size to your preference */
+  font-weight: 800; /* Bold and impactful */
+  font-family: 'Poppins', sans-serif; /* A clean, modern font */
+  background: linear-gradient(90deg, #00c6ff, #0072ff);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  text-transform: uppercase; /* Uppercase for a logo-like feel */
+}
+
+.text-ai {
+  font-size: 3rem;
+  font-weight: 800;
+  font-family: 'Poppins', sans-serif;
+  background: linear-gradient(90deg, #ff5858, #f09819);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  text-transform: uppercase;
+}
+
